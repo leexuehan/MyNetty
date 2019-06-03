@@ -1,0 +1,7 @@
+*.xml
+*.log
+*.apk
+/out/
+.idea/
+*.class
+
