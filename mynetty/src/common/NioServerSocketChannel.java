@@ -48,6 +48,7 @@ public class NioServerSocketChannel {
 
     public void doRegister(NioEventLoop nioEventLoop) throws ClosedChannelException {
         javaChannel().register(nioEventLoop.getSelector(), 0, this);
+        System.out.println("register finished");
     }
 
     private ServerSocketChannel javaChannel() {

@@ -11,6 +11,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -18,19 +19,20 @@ import java.util.concurrent.RejectedExecutionException;
 public class NioEventLoop {
     private Thread thread;
     private Queue<Runnable> queue;
-
+    private Executor executor;
     private Selector selector;
 
-    public NioEventLoop(int maxPendingTasks) {
+    public NioEventLoop(int maxPendingTasks, Executor executor) {
         this.queue = newTaskQueue(maxPendingTasks);
         this.selector = openSelector();
+        this.executor = executor;
     }
 
     public Selector getSelector() {
         return selector;
     }
 
-    protected LinkedBlockingQueue<Runnable> newTaskQueue(int maxPendingTasks) {
+    protected Queue<Runnable> newTaskQueue(int maxPendingTasks) {
         return new LinkedBlockingQueue<>(maxPendingTasks);
     }
 
@@ -62,13 +64,19 @@ public class NioEventLoop {
             throw new NullPointerException("task");
         }
         addTask(task);
+        System.out.println("add task finished!");
         if (!inEventLoop()) {
             startThread();
         }
     }
 
     private void startThread() {
-        this.run();
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                NioEventLoop.this.run();
+            }
+        });
     }
 
     private void run() {

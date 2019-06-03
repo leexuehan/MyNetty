@@ -3,11 +3,17 @@ import threadmodel.NioEventLoop;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.Executor;
 
 public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         NioServerSocketChannel serverSocketChannel = new NioServerSocketChannel();
-        NioEventLoop eventLoop = new NioEventLoop(10);
+        NioEventLoop eventLoop = new NioEventLoop(10, new Executor() {
+            @Override
+            public void execute(Runnable command) {
+                new Thread(command).start();
+            }
+        });
         serverSocketChannel.setEventLoop(eventLoop);
         serverSocketChannel.bind(new InetSocketAddress(9999));
         //wait for connection
