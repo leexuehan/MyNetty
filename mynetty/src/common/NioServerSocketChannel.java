@@ -37,8 +37,8 @@ public class NioServerSocketChannel {
         }
     }
 
-    public void bind(final SocketAddress socketAddress) {
-
+    public void bind(final SocketAddress localAddress) throws IOException {
+        this.ch.bind(localAddress, 1024);
     }
 
     public void setEventLoop(NioEventLoop eventLoop) {

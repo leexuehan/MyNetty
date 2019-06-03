@@ -46,6 +46,7 @@ public class NioEventLoop {
     }
 
     private void run() {
+        thread = Thread.currentThread();
         for (; ; ) {
             try {
                 if (hasTasks()) {
