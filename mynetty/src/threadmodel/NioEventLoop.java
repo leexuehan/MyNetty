@@ -1,10 +1,16 @@
 package threadmodel;
 
 import common.ChannelException;
+import common.NioServerSocketChannel;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.util.Iterator;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -12,11 +18,16 @@ import java.util.concurrent.RejectedExecutionException;
 public class NioEventLoop {
     private Thread thread;
     private Queue<Runnable> queue;
+
     private Selector selector;
 
     public NioEventLoop(int maxPendingTasks) {
         this.queue = newTaskQueue(maxPendingTasks);
         this.selector = openSelector();
+    }
+
+    public Selector getSelector() {
+        return selector;
     }
 
     protected LinkedBlockingQueue<Runnable> newTaskQueue(int maxPendingTasks) {
@@ -31,12 +42,27 @@ public class NioEventLoop {
         }
     }
 
+    public void register(NioServerSocketChannel channel) {
+        this.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    channel.doRegister(NioEventLoop.this);
+                } catch (ClosedChannelException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+    }
+
+
     public void execute(Runnable task) {
         if (task == null) {
             throw new NullPointerException("task");
         }
         addTask(task);
-        if (inEventLoop()) {
+        if (!inEventLoop()) {
             startThread();
         }
     }
@@ -50,9 +76,12 @@ public class NioEventLoop {
         for (; ; ) {
             try {
                 if (hasTasks()) {
+//                    System.out.println("there are tasks in queue, so select now");
                     this.selector.selectNow();
-                } else {
+                }
+                try {
                     processSelectedKeys();
+                } finally {
                     runAllTasks();
                 }
             } catch (IOException e) {
@@ -63,11 +92,54 @@ public class NioEventLoop {
 
     //从任务队列中取出消息执行
     private void runAllTasks() {
-
+        while (!queue.isEmpty()) {
+            System.out.println("run tasks from queue");
+            Runnable task = queue.poll();
+            try {
+                if (task == null) {
+                    break;
+                }
+                task.run();
+            } catch (Throwable e) {
+                System.err.println("task execute error!");
+            }
+        }
     }
 
     private void processSelectedKeys() {
+        Set<SelectionKey> selectionKeySet = this.selector.selectedKeys();
+        if (selectionKeySet.isEmpty()) {
+            return;
+        }
+        System.out.println("keyset not empty");
+        Iterator<SelectionKey> iterator = selectionKeySet.iterator();
+        for (; ; ) {
+            SelectionKey key = iterator.next();
+            iterator.remove();
+            NioServerSocketChannel channel = (NioServerSocketChannel) key.attachment();
+            processSelectedKey(key, channel);
+            if (!iterator.hasNext()) {
+                break;
+            }
+        }
+    }
 
+    private void processSelectedKey(SelectionKey key, NioServerSocketChannel channel) {
+        int readyOps = key.readyOps();
+        if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
+            System.out.println("connect event!!!!!");
+            int ops = key.interestOps();
+            ops &= ~SelectionKey.OP_CONNECT;
+            key.interestOps(ops);
+        }
+
+        if ((readyOps & SelectionKey.OP_WRITE) != 0) {
+            System.out.println("write event!!!");
+        }
+
+        if ((readyOps & (SelectionKey.OP_ACCEPT | SelectionKey.OP_READ)) != 0 || readyOps == 0) {
+            System.out.println("Accept event");
+        }
     }
 
     private boolean hasTasks() {
@@ -79,6 +151,7 @@ public class NioEventLoop {
     }
 
     private void addTask(Runnable task) {
+        System.out.println("add new task to queue");
         if (!queue.offer(task)) {
             throw new RejectedExecutionException("task rejected");
         }

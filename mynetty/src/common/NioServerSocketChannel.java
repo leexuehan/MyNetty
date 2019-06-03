@@ -4,6 +4,7 @@ import threadmodel.NioEventLoop;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.spi.SelectorProvider;
@@ -15,7 +16,6 @@ public class NioServerSocketChannel {
     //java nio channel
     private ServerSocketChannel ch;
 
-    private final int readInterestOps;
 
     public NioServerSocketChannel() {
         SelectorProvider provider = DEFAULT_SELECTOR_PROVIDER;
@@ -25,7 +25,6 @@ public class NioServerSocketChannel {
         } catch (IOException e) {
             throw new ChannelException("failed to enter non-blocking mode", e);
         }
-        this.readInterestOps = SelectionKey.OP_ACCEPT;
 
     }
 
@@ -38,6 +37,8 @@ public class NioServerSocketChannel {
     }
 
     public void bind(final SocketAddress localAddress) throws IOException {
+        //register
+        eventLoop.register(this);
         this.ch.bind(localAddress, 1024);
     }
 
@@ -45,7 +46,11 @@ public class NioServerSocketChannel {
         this.eventLoop = eventLoop;
     }
 
-    public NioEventLoop getEventLoop() {
-        return eventLoop;
+    public void doRegister(NioEventLoop nioEventLoop) throws ClosedChannelException {
+        javaChannel().register(nioEventLoop.getSelector(), 0, this);
+    }
+
+    private ServerSocketChannel javaChannel() {
+        return ch;
     }
 }
