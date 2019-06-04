@@ -109,10 +109,30 @@ public class NioEventLoop {
             long selectDeadlineNanos = currentTimeNanos + TimeUnit.SECONDS.toNanos(1);
             for (; ; ) {
                 long timeoutMillis = (selectDeadlineNanos - currentTimeNanos + 500_000L) / 1_000_000L;
+                //超时则执行 select 方法返回
                 if (timeoutMillis < 0) {
                     selector.selectNow();
                     break;
                 }
+                //如果有任务，为了防止任务一直处于等待状态，需要及时返回
+                if (hasTasks()) {
+                    selector.selectNow();
+                    break;
+                }
+
+                //阻塞执行 select 方法直到超时
+                int selectKeys = selector.select(timeoutMillis);
+
+                //有新事件发生
+                if (selectKeys != 0) {
+                    break;
+                }
+
+                //线程被打断，返回
+                if (Thread.interrupted()) {
+                    break;
+                }
+
                 currentTimeNanos = System.nanoTime();
             }
         } catch (IOException e) {
