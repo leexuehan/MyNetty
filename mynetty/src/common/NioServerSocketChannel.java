@@ -7,6 +7,7 @@ import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 
 public class NioServerSocketChannel {
@@ -15,6 +16,8 @@ public class NioServerSocketChannel {
 
     //java nio channel
     private ServerSocketChannel ch;
+    private int interestOps;
+    private volatile SelectionKey selectionKey;
 
 
     public NioServerSocketChannel() {
@@ -47,11 +50,20 @@ public class NioServerSocketChannel {
     }
 
     public void doRegister(NioEventLoop nioEventLoop) throws ClosedChannelException {
-        javaChannel().register(nioEventLoop.getSelector(), 0, this);
+        this.selectionKey = javaChannel().register(nioEventLoop.getSelector(), 0, this);
+        int interestOps = this.selectionKey.interestOps();
+        if ((interestOps & SelectionKey.OP_ACCEPT) == 0) {
+            this.selectionKey.interestOps(interestOps | SelectionKey.OP_ACCEPT);
+        }
         System.out.println("register finished");
     }
 
     private ServerSocketChannel javaChannel() {
         return ch;
+    }
+
+    public SocketChannel accept() throws IOException {
+        SocketChannel socketChannel = this.javaChannel().accept();
+        return socketChannel;
     }
 }

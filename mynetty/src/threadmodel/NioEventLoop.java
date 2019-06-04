@@ -7,12 +7,14 @@ import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 //事件循环执行器
 public class NioEventLoop {
@@ -80,11 +82,14 @@ public class NioEventLoop {
 
     private void run() {
         thread = Thread.currentThread();
+        System.out.println("start looping");
         for (; ; ) {
             try {
                 if (hasTasks()) {
-//                    System.out.println("there are tasks in queue, so select now");
                     this.selector.selectNow();
+                } else {
+                    // if there is no task then select directly
+                    doSelectTask();
                 }
                 try {
                     processSelectedKeys();
@@ -95,6 +100,26 @@ public class NioEventLoop {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void doSelectTask() {
+        Selector selector = this.selector;
+        try {
+            long currentTimeNanos = System.nanoTime();
+            long selectDeadlineNanos = currentTimeNanos + TimeUnit.SECONDS.toNanos(1);
+            for (; ; ) {
+                long timeoutMillis = (selectDeadlineNanos - currentTimeNanos + 500_000L) / 1_000_000L;
+                if (timeoutMillis < 0) {
+                    selector.selectNow();
+                    break;
+                }
+                currentTimeNanos = System.nanoTime();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
     //从任务队列中取出消息执行
@@ -145,7 +170,12 @@ public class NioEventLoop {
         }
 
         if ((readyOps & (SelectionKey.OP_ACCEPT | SelectionKey.OP_READ)) != 0 || readyOps == 0) {
-            System.out.println("Accept event");
+            System.out.println("Accept new connection");
+            try {
+                SocketChannel socketChannel = channel.accept();
+            } catch (IOException e) {
+                throw new ChannelException("accept new channel exception", e);
+            }
         }
     }
 
