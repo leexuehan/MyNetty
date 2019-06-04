@@ -3,6 +3,7 @@ package examples;
 import common.ChannelException;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
@@ -141,7 +142,7 @@ public class Reactor implements Runnable {
         boolean inputIsComplete() {
             try {
                 int read = socketChannel.read(input);
-                return read == -1;
+                return read == 0;
             } catch (IOException e) {
                 e.printStackTrace();
                 return false;
@@ -150,11 +151,17 @@ public class Reactor implements Runnable {
         }
 
         boolean outputIsComplete() {
-            return output.hasRemaining();
+            return !output.hasRemaining();
         }
 
-        void process() {
-
+        void process() throws UnsupportedEncodingException {
+            System.out.println("msg received");
+            input.flip();
+            int len = input.remaining();
+            byte[] bytes = new byte[len];
+            input.get(bytes, 0, bytes.length);
+            System.out.println(new String(bytes, "utf-8"));
+            input.clear();
         }
 
         void read() {
@@ -173,6 +180,7 @@ public class Reactor implements Runnable {
         void send() {
             try {
                 socketChannel.write(output);
+                System.out.println("write msg finished");
                 if (outputIsComplete()) {
                     selectionKey.cancel();
                 }
