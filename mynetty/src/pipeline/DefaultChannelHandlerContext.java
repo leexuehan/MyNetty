@@ -6,6 +6,8 @@ import java.net.SocketAddress;
  * @author leexuehan on 2019/6/5.
  */
 public class DefaultChannelHandlerContext implements ChannelHandlerContext {
+    private final ChannelHandler handler;
+
     volatile DefaultChannelHandlerContext next;
     volatile DefaultChannelHandlerContext prev;
 
@@ -14,8 +16,10 @@ public class DefaultChannelHandlerContext implements ChannelHandlerContext {
     private final boolean inBound;
     private final boolean outBound;
 
-    public DefaultChannelHandlerContext(DefaultChannelPipeline pipeline, boolean inBound, boolean outBound) {
+    public DefaultChannelHandlerContext(DefaultChannelPipeline pipeline, ChannelHandler channelHandler,
+                                        boolean inBound, boolean outBound) {
         this.pipeline = pipeline;
+        this.handler = channelHandler;
         this.inBound = inBound;
         this.outBound = outBound;
     }
@@ -39,12 +43,13 @@ public class DefaultChannelHandlerContext implements ChannelHandlerContext {
 
     @Override
     public void connect(SocketAddress remoteAddress) {
-        
+
     }
 
 
     @Override
     public ChannelHandlerContext fireChannelRead(Object msg) {
+
         getPipeline().fireChannelRead(msg);
         return this;
     }
@@ -52,5 +57,27 @@ public class DefaultChannelHandlerContext implements ChannelHandlerContext {
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
         return null;
+    }
+
+    @Override
+    public ChannelHandler handler() {
+        return handler;
+    }
+
+    private ChannelHandlerContext findContextOutbound() {
+        DefaultChannelHandlerContext ctx = this;
+        do {
+            ctx = ctx.prev;
+        } while (ctx.isInBound());
+
+        return ctx;
+    }
+
+    private ChannelHandlerContext findContextInbound() {
+        DefaultChannelHandlerContext ctx = this;
+        do {
+            ctx = ctx.next;
+        } while (ctx.isOutBound());
+        return ctx;
     }
 }

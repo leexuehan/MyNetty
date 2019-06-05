@@ -34,7 +34,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     final class HeadContext extends DefaultChannelHandlerContext implements ChannelOutboundHandler, ChannelInboundHandler {
 
         HeadContext(DefaultChannelPipeline pipeline) {
-            super(pipeline, true, true);
+            super(pipeline, null, true, true);
         }
 
         @Override
@@ -49,68 +49,65 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void connect() throws Exception {
-
+            //最终是由head节点真正处理连接事件
+            System.out.println("do actual connection event here in head node!");
         }
 
         @Override
         public void bind(ChannelHandlerContext ctx, SocketAddress localAddress) throws Exception {
+            //最终是由head节点真正处理绑定事件
+            System.out.println("do actual bind event here in head node!");
+        }
 
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            System.out.println("begin to execute read event here in head node!");
+        }
+
+        @Override
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+
+        }
+
+        @Override
+        public ChannelHandler handler() {
+            return this;
         }
     }
 
     final class TailContext extends DefaultChannelHandlerContext implements ChannelInboundHandler {
 
         TailContext(DefaultChannelPipeline pipeline) {
-            super(pipeline, true, false);
+            super(pipeline, null, true, false);
         }
 
 
         @Override
         public void handlerAdded(ChannelHandlerContext ctx) {
+            //do nothing
 
         }
 
         @Override
         public void handlerRemoved(ChannelHandlerContext ctx) {
+            //do nothing
+        }
+        
+        @Override
+        public ChannelHandler handler() {
+            return this;
+        }
 
+
+        //到达流水线的尾端，直接丢弃
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            System.out.println("msg reached the handler tail,so discard it directly");
         }
 
         @Override
-        public void bind(SocketAddress localAddress) {
-
-        }
-
-        @Override
-        public void connect(SocketAddress remoteAddress) {
-            final ChannelHandlerContext next = findContextOutbound();
-            next.connect(remoteAddress);
-        }
-
-        @Override
-        public ChannelHandlerContext fireChannelRead(Object msg) {
-            return null;
-        }
-
-        @Override
-        public ChannelHandlerContext fireChannelRegistered() {
-            return null;
-        }
-
-        private ChannelHandlerContext findContextOutbound() {
-            DefaultChannelHandlerContext ctx = this;
-            do {
-                ctx = ctx.prev;
-            } while (ctx.isInBound());
-
-            return ctx;
-        }
-
-        private ChannelHandlerContext findContextInbound() {
-            DefaultChannelHandlerContext ctx = this;
-            do {
-                ctx = ctx.next;
-            } while (ctx.isOutBound());
-            return ctx;
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+            //do nothing
         }
     }
 }

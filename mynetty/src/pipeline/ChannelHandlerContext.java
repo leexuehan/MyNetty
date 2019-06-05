@@ -17,4 +17,6 @@ public interface ChannelHandlerContext {
     ChannelHandlerContext fireChannelRead(Object msg);
 
     ChannelHandlerContext fireChannelRegistered();
+
+    ChannelHandler handler();
 }
