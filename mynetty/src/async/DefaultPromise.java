@@ -18,6 +18,8 @@ public class DefaultPromise<V> implements Promise<V> {
     private static final Object SUCCESS = new Object();
     private static final Object UNCANCELLABLE = new Object();
 
+    private short waiters;
+
     @Override
     public Promise<V> setSuccess(V result) {
         Object value = result == null ? SUCCESS : result;
@@ -63,15 +65,15 @@ public class DefaultPromise<V> implements Promise<V> {
                 }
             }
         }
-        return null;
+        return this;
     }
 
     private void decWaiters() {
-
+        waiters--;
     }
 
     private void incWaiters() {
-
+        waiters++;
     }
 
     @Override
