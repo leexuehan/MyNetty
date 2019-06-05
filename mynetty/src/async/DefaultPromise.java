@@ -46,7 +46,32 @@ public class DefaultPromise<V> implements Promise<V> {
 
     @Override
     public Promise<V> await() throws InterruptedException {
+        if (isDone()) {
+            return this;
+        }
+        if (Thread.interrupted()) {
+            throw new InterruptedException(toString());
+        }
+
+        synchronized (this) {
+            while (!isDone()) {
+                incWaiters();
+                try {
+                    wait();
+                } finally {
+                    decWaiters();
+                }
+            }
+        }
         return null;
+    }
+
+    private void decWaiters() {
+
+    }
+
+    private void incWaiters() {
+
     }
 
     @Override
