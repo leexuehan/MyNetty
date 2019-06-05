@@ -6,8 +6,8 @@ import java.net.SocketAddress;
  * @author leexuehan on 2019/6/5.
  */
 public class DefaultChannelPipeline implements ChannelPipeline {
-    final HeadContext head;
-    final TailContext tail;
+    private final HeadContext head;
+    private final TailContext tail;
 
     public DefaultChannelPipeline() {
         head = new HeadContext(this);
@@ -20,21 +20,33 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public ChannelPipeline addLast(String name, ChannelHandler handler) {
-        return null;
+        AbstractChannelHandlerContext newCtx = newContext(name, handler);
+        AbstractChannelHandlerContext prev = tail.prev;
+        newCtx.prev = prev;
+        newCtx.next = tail;
+
+        prev.next = newCtx;
+        tail.prev = newCtx;
+
+        return this;
+    }
+
+    private AbstractChannelHandlerContext newContext(String name, ChannelHandler handler) {
+        return new DefaultChannelHandlerContext(this, handler, name);
     }
 
     public void connect(SocketAddress remoteAddress) {
         tail.connect(remoteAddress);
     }
 
-    public void fireChannelRead(Object msg) {
+    public void invokeChannelRead(Object msg) {
         head.fireChannelRead(msg);
     }
 
-    final class HeadContext extends DefaultChannelHandlerContext implements ChannelOutboundHandler, ChannelInboundHandler {
+    final class HeadContext extends AbstractChannelHandlerContext implements ChannelOutboundHandler, ChannelInboundHandler {
 
         HeadContext(DefaultChannelPipeline pipeline) {
-            super(pipeline, null, true, true);
+            super(pipeline, HeadContext.class, "NETTYHEAD");
         }
 
         @Override
@@ -62,6 +74,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             System.out.println("begin to execute read event here in head node!");
+            ((ChannelInboundHandler) handler()).channelRead(this, msg);
         }
 
         @Override
@@ -75,10 +88,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
-    final class TailContext extends DefaultChannelHandlerContext implements ChannelInboundHandler {
+    final class TailContext extends AbstractChannelHandlerContext implements ChannelInboundHandler {
 
         TailContext(DefaultChannelPipeline pipeline) {
-            super(pipeline, null, true, false);
+            super(pipeline, TailContext.class, "NETTYTAIL");
         }
 
 
@@ -92,7 +105,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void handlerRemoved(ChannelHandlerContext ctx) {
             //do nothing
         }
-        
+
         @Override
         public ChannelHandler handler() {
             return this;
