@@ -1,9 +1,6 @@
 package examples;
 
-import pipeline.ChannelHandlerContext;
-import pipeline.ChannelInboundHandler;
-import pipeline.ChannelOutboundHandler;
-import pipeline.DefaultChannelPipeline;
+import pipeline.*;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -19,7 +16,6 @@ public class Entry {
 
     private static void testPipeline() {
         DefaultChannelPipeline pipeline = new DefaultChannelPipeline();
-//        pipeline.connect(new InetSocketAddress(6666));
         pipeline.addLast("inbound1", new ChannelInboundHandler() {
             @Override
             public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -44,9 +40,11 @@ public class Entry {
         });
 
         pipeline.addLast("outbound1", new ChannelOutboundHandler() {
+
             @Override
-            public void connect() throws Exception {
+            public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress) throws Exception {
                 System.out.println("connect event in handler outbound1");
+                ctx.connect(remoteAddress);
             }
 
             @Override
@@ -87,7 +85,8 @@ public class Entry {
 
             }
         });
-        pipeline.invokeChannelRead("read msg generated!");
+        pipeline.connect(new InetSocketAddress(6666));
+//        pipeline.invokeChannelRead("read msg generated!");
     }
 
 

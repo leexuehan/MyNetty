@@ -42,7 +42,17 @@ public abstract class AbstractChannelHandlerContext implements ChannelHandlerCon
 
     @Override
     public void connect(SocketAddress remoteAddress) {
+        AbstractChannelHandlerContext next = findContextOutbound();
+        next.invokeConnect(remoteAddress);
+    }
 
+    private void invokeConnect(SocketAddress remoteAddress) {
+        try {
+            ((ChannelOutboundHandler) handler()).connect(this, remoteAddress);
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.out.println("connect exception");
+        }
     }
 
 
@@ -66,7 +76,7 @@ public abstract class AbstractChannelHandlerContext implements ChannelHandlerCon
         AbstractChannelHandlerContext ctx = this;
         do {
             ctx = ctx.prev;
-        } while (ctx.isInBound());
+        } while (ctx.isInBound() && ctx.prev != null);
 
         return ctx;
     }

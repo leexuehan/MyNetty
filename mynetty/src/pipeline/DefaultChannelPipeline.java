@@ -60,7 +60,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
 
         @Override
-        public void connect() throws Exception {
+        public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress) throws Exception {
             //最终是由head节点真正处理连接事件
             System.out.println("do actual connection event here in head node!");
         }
