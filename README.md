@@ -1,4 +1,5 @@
-# NettySimulator
-for netty source study
+# MyNetty
 
-In this repository,I will build a simple nio framework in order to get the outline that how netty encapsulate Java nio.
+## for netty source study
+
+#### In this repository,I will extract some logics from netty framework in order to get the outline that how netty encapsulates Java nio clearly and learn some coding skills.
