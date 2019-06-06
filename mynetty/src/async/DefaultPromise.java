@@ -20,15 +20,29 @@ public class DefaultPromise<V> implements Promise<V> {
 
     private short waiters;
 
+    private volatile boolean isDone;
+
     @Override
     public Promise<V> setSuccess(V result) {
-        Object value = result == null ? SUCCESS : result;
-        if (RESULT_UPDATER.compareAndSet(this, null, value) ||
-                RESULT_UPDATER.compareAndSet(this, UNCANCELLABLE, value)) {
+//        Object value = result == null ? SUCCESS : result;
+//        if (RESULT_UPDATER.compareAndSet(this, null, value) ||
+//                RESULT_UPDATER.compareAndSet(this, UNCANCELLABLE, value)) {
+//
+//        }
 
+        synchronized (this) {
+            // Allow only once.
+            if (isDone) {
+                return this;
+            }
+
+            isDone = true;
+            if (waiters > 0) {
+                this.notifyAll();
+            }
         }
 
-        return null;
+        return this;
     }
 
     @Override
@@ -103,7 +117,7 @@ public class DefaultPromise<V> implements Promise<V> {
 
     @Override
     public boolean isDone() {
-        return false;
+        return isDone;
     }
 
     @Override
