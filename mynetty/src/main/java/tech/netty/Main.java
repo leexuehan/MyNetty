@@ -1,5 +1,6 @@
-import common.NioServerSocketChannel;
-import threadmodel.NioEventLoop;
+package tech.netty;
+
+import tech.netty.threadmodel.NioEventLoop;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

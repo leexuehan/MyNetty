@@ -1,8 +1,8 @@
-package async.example;
+package tech.netty.async.example;
 
-import async.DefaultPromise;
-import async.Future;
-import async.Promise;
+import tech.netty.async.DefaultPromise;
+import tech.netty.async.Future;
+import tech.netty.async.Promise;
 
 /**
  * @author leexuehan on 2019/6/5.

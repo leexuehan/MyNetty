@@ -1,6 +1,6 @@
-package common;
+package tech.netty;
 
-import threadmodel.NioEventLoop;
+import tech.netty.threadmodel.NioEventLoop;
 
 import java.io.IOException;
 import java.net.SocketAddress;

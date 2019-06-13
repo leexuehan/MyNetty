@@ -1,6 +1,7 @@
-package examples;
+package tech.netty.examples;
 
-import common.ChannelException;
+
+import tech.netty.ChannelException;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;

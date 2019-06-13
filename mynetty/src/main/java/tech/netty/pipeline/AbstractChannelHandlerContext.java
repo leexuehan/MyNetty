@@ -1,4 +1,4 @@
-package pipeline;
+package tech.netty.pipeline;
 
 import java.net.SocketAddress;
 

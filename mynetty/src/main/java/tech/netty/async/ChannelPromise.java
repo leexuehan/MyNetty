@@ -1,6 +1,7 @@
-package async;
+package tech.netty.async;
 
-import common.NettyChannel;
+
+import tech.netty.NettyChannel;
 
 /**
  * @author leexuehan on 2019/6/5.

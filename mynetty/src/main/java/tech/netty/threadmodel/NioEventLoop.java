@@ -1,7 +1,8 @@
-package threadmodel;
+package tech.netty.threadmodel;
 
-import common.ChannelException;
-import common.NioServerSocketChannel;
+
+import tech.netty.ChannelException;
+import tech.netty.NioServerSocketChannel;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;

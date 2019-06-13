@@ -1,4 +1,4 @@
-package common;
+package tech.netty;
 
 public class ChannelException extends RuntimeException {
     public ChannelException(String message) {

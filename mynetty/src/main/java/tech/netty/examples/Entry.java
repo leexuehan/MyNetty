@@ -1,6 +1,10 @@
-package examples;
+package tech.netty.examples;
 
-import pipeline.*;
+
+import tech.netty.pipeline.ChannelHandlerContext;
+import tech.netty.pipeline.ChannelInboundHandler;
+import tech.netty.pipeline.ChannelOutboundHandler;
+import tech.netty.pipeline.DefaultChannelPipeline;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
