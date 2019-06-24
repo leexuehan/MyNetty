@@ -35,8 +35,15 @@ public class Arena<T> {
         Normal
     }
 
+    final int pageSize;
+    final int pageShifts;
+    final int chunkSize;
+    final int directMemoryCacheAlignment;
+    final int directMemoryCacheAlignmentMask;
+
     final int numOfSmallSubpages;
     static final int numOfTinySubpages = 512 >>> 4; //32
+    final int subpageOverflowMask;
 
     //使用率不同的 Chunk 链表
     private final ChunkList<T> q000;
@@ -49,7 +56,14 @@ public class Arena<T> {
     private final SubPage<T>[] tinySubpages;
     private final SubPage<T>[] smallSubpages;
 
-    public Arena(int pageSize, int pageShifts, int chunkSize) {
+
+    public Arena(int pageSize, int pageShifts, int chunkSize, int cacheAlignment) {
+        this.pageSize = pageSize;
+        this.pageShifts = pageShifts;
+        this.chunkSize = chunkSize;
+        directMemoryCacheAlignment = cacheAlignment;
+        directMemoryCacheAlignmentMask = cacheAlignment - 1;
+
         tinySubpages = new SubPage[numOfTinySubpages];
         for (int i = 0; i < tinySubpages.length; i++) {
             tinySubpages[i] = newSubpageHead(pageSize);
@@ -75,7 +89,7 @@ public class Arena<T> {
         q000.prevList(null);
         qInit.prevList(qInit);
 
-
+        subpageOverflowMask = ~(pageSize - 1);
     }
 
     private SubPage<T> newSubpageHead(int pageSize) {
@@ -83,6 +97,58 @@ public class Arena<T> {
         head.prev = head;
         head.next = head;
         return head;
+    }
+
+    //capacity < pageSize
+    boolean isTinyOrSmall(int normCapacity) {
+        return (normCapacity & subpageOverflowMask) == 0;
+    }
+
+    // < 512
+    static boolean isTiny(int normCapacity) {
+        return (normCapacity & 0xFFFFFE00) == 0;
+    }
+
+    int normalizeCapacity(int reqCapacity) {
+        if (reqCapacity < 0) {
+            throw new IllegalArgumentException("reqCapacity:" + reqCapacity + "(expected: >= 0)");
+        }
+
+        if (reqCapacity >= chunkSize) {
+            return directMemoryCacheAlignment == 0 ? reqCapacity : alignCapacity(reqCapacity);
+        }
+
+        if (!isTiny(reqCapacity)) { // >= 512
+            int normalizedCapacity = reqCapacity;
+            normalizedCapacity--;
+            normalizedCapacity |= normalizedCapacity >>> 1;
+            normalizedCapacity |= normalizedCapacity >>> 2;
+            normalizedCapacity |= normalizedCapacity >>> 4;
+            normalizedCapacity |= normalizedCapacity >>> 8;
+            normalizedCapacity |= normalizedCapacity >>> 16;
+            normalizedCapacity++;
+
+            if (normalizedCapacity < 0) {
+                normalizedCapacity >>>= 1;
+            }
+
+            return normalizedCapacity;
+        }
+
+        if (directMemoryCacheAlignment > 0) {
+            return alignCapacity(reqCapacity);
+        }
+
+        if ((reqCapacity & 15) == 0) {
+            return reqCapacity;
+        }
+
+        return (reqCapacity & ~15) + 16;
+    }
+
+    int alignCapacity(int reqCapacity) {
+        int delta = reqCapacity & directMemoryCacheAlignmentMask;
+        return delta == 0 ? reqCapacity : reqCapacity + directMemoryCacheAlignment - delta;
     }
 
 
