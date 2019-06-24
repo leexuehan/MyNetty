@@ -198,8 +198,8 @@ public class Arena<T> {
                 final SubPage<T> s = head.next;
                 if (s != head) {
                     long handle = s.allocate();
-                    s.chunk.initBufWithSubpage();
-                    incTinySmallAllocation(isTiny);
+                    s.chunk.initBufWithSubpage(buf, null, handle, reqCapacity);
+                    incNumOfTinySmallAllocation(isTiny);
                     return;
                 }
             }
@@ -224,6 +224,12 @@ public class Arena<T> {
             allocateHuge(buf, reqCapacity);
         }
 
+    }
+
+    private void incNumOfTinySmallAllocation(boolean isTiny) {
+        if(isTiny){
+
+        }
     }
 
     private int tinyIdx(int normCapacity) {
