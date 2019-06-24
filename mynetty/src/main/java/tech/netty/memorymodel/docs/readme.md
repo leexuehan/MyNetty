@@ -13,3 +13,6 @@
 
 
 [参考链接](https://gsmtoday.github.io/2017/09/03/netty-memory-pool-md/)
+
+
+源码分析参考:[自顶向下深入分析Netty](https://www.jianshu.com/p/15304cd63175)

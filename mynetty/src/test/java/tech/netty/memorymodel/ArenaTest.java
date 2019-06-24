@@ -15,16 +15,23 @@ public class ArenaTest {
 
     }
 
-    @Test
-    public void testAligncapacity() throws Exception {
-
-    }
 
     @Test
     public void testNormalizeCapacity() throws Exception {
         Arena<ByteBuffer> arena = new Arena<>(0, 9, 99999, 0);
+        int[] reqCapacities = {0, 15, 510, 513, 1024, 1023, 1025};
+        int[] expectedCapacities = {0, 16, 512, 1024, 1024, 1024, 2048};
+        for (int i = 0; i < reqCapacities.length; i++) {
+            int result = arena.normalizeCapacity(reqCapacities[i]);
+            assertEquals(expectedCapacities[i], result);
+        }
+    }
+
+    @Test
+    public void testNormalizeAlignedCapacity() throws Exception {
+        Arena<ByteBuffer> arena = new Arena<>(0, 9, 99999, 64);
         int[] reqCapacities = {0, 15, 510, 1024, 1023, 1025};
-        int[] expectedCapacities = {0, 16, 512, 1024, 1024, 2048};
+        int[] expectedCapacities = {0, 64, 512, 1024, 1024, 2048};
         for (int i = 0; i < reqCapacities.length; i++) {
             int result = arena.normalizeCapacity(reqCapacities[i]);
             assertEquals(expectedCapacities[i], result);

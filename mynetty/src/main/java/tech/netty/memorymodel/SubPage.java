@@ -10,9 +10,15 @@ package tech.netty.memorymodel;
 final class SubPage<T> {
     SubPage<T> prev;
     SubPage<T> next;
+    Chunk<T> chunk;
 
 
     SubPage(int pageSize) {
+
+    }
+
+    public long allocate() {
+
 
     }
 }

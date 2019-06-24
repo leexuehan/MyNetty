@@ -5,6 +5,8 @@ package tech.netty.memorymodel;
  */
 
 
+import tech.netty.common.buffer.PooledByteBuf;
+
 /**
  * Netty 全局内存池
  * <p>
@@ -38,6 +40,10 @@ public class Arena<T> {
     final int pageSize;
     final int pageShifts;
     final int chunkSize;
+    /**
+     * 以下两变量实现：以此数值进行对齐，i.e:
+     * 如果为 64，则归一化后的容量皆以 64 为单位进行对齐
+     */
     final int directMemoryCacheAlignment;
     final int directMemoryCacheAlignmentMask;
 
@@ -118,6 +124,8 @@ public class Arena<T> {
             return directMemoryCacheAlignment == 0 ? reqCapacity : alignCapacity(reqCapacity);
         }
 
+        //大于 512 的为 small，通过移位操作搞定
+        // 要保证按照下面的次序进行归一化: 512(2^9)、1024(2^10)、2048(2^11)、4096(2^12).....
         if (!isTiny(reqCapacity)) { // >= 512
             int normalizedCapacity = reqCapacity;
             normalizedCapacity--;
@@ -126,6 +134,7 @@ public class Arena<T> {
             normalizedCapacity |= normalizedCapacity >>> 4;
             normalizedCapacity |= normalizedCapacity >>> 8;
             normalizedCapacity |= normalizedCapacity >>> 16;
+            //因为int类型为 32 位，所以到了此处可以保证32位全1，加1进位可以保证是取整倍数
             normalizedCapacity++;
 
             if (normalizedCapacity < 0) {
@@ -135,10 +144,12 @@ public class Arena<T> {
             return normalizedCapacity;
         }
 
+        // < 512 的为 tiny 单独考虑归一化，只需要保证是 16 的倍数即可
         if (directMemoryCacheAlignment > 0) {
             return alignCapacity(reqCapacity);
         }
 
+        //后4位为0，意即16的倍数，无须再继续归一化
         if ((reqCapacity & 15) == 0) {
             return reqCapacity;
         }
@@ -148,8 +159,91 @@ public class Arena<T> {
 
     int alignCapacity(int reqCapacity) {
         int delta = reqCapacity & directMemoryCacheAlignmentMask;
+        //如果 delta 不为 0，说明该数有零头，需要在下一步减去后，加上对齐位即可
         return delta == 0 ? reqCapacity : reqCapacity + directMemoryCacheAlignment - delta;
     }
 
+    PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
+        PooledByteBuf<T> buf = newByteBuf(maxCapacity);
+        allocate(cache, buf, reqCapacity);
+        return buf;
+    }
+
+    //核心分配方法
+    private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, int reqCapacity) {
+        final int normCapacity = normalizeCapacity(reqCapacity);
+        // 分配 normal 或者 small
+        if (isTinyOrSmall(normCapacity)) {
+            int tableIdx;
+            SubPage<T>[] table;
+            boolean isTiny = isTiny(normCapacity);
+            //tiny
+            if (isTiny) {
+                if (cache.allocateTiny(this, buf, reqCapacity, normCapacity)) {
+                    return;
+                }
+                tableIdx = tinyIdx(normCapacity);
+                table = tinySubpages;
+            }
+            //small
+            else {
+                if (cache.allocateSmall(this, buf, reqCapacity, normCapacity)) {
+                    return;
+                }
+                tableIdx = smallIdx(normCapacity);
+                table = smallSubpages;
+            }
+            final SubPage<T> head = table[tableIdx];
+            synchronized (head) {
+                final SubPage<T> s = head.next;
+                if (s != head) {
+                    long handle = s.allocate();
+                    s.chunk.initBufWithSubpage();
+                    incTinySmallAllocation(isTiny);
+                    return;
+                }
+            }
+
+            synchronized (this) {
+                allocateNormal(buf, reqCapacity, normCapacity);
+            }
+        }
+        // 分配 normal
+        if (normCapacity <= chunkSize) {
+            //如果能在线程本地的缓存中分配，则分配成功后返回
+            if (cache.allocateNormal(this, buf, reqCapacity, normCapacity)) {
+                return;
+            }
+            synchronized (this) {
+                allocateNormal(buf, reqCapacity, normCapacity);
+            }
+        }
+        //分配 huge
+        else {
+            //huge 在线程本地没有缓存
+            allocateHuge(buf, reqCapacity);
+        }
+
+    }
+
+    private int tinyIdx(int normCapacity) {
+        return normCapacity >>> 4;
+    }
+
+    private int smallIdx(int normCapacity) {
+
+    }
+
+    private void allocateNormal(PooledByteBuf<T> buf, int reqCapacity, int normCapacity) {
+
+    }
+
+    private void allocateHuge(PooledByteBuf<T> buf, int reqCapacity) {
+
+    }
+
+    private PooledByteBuf<T> newByteBuf(int maxCapacity) {
+        return null;
+    }
 
 }
