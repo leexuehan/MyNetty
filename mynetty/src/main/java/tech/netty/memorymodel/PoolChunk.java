@@ -9,10 +9,10 @@ import tech.netty.common.buffer.PooledByteBuf;
 import java.nio.ByteBuffer;
 
 /**
- * 次于 Arena 的内存单元
+ * 次于 PoolArena 的内存单元
  * 管理 Page 的分配
  */
-public class Chunk<T> {
+public class PoolChunk<T> {
     void initBufWithSubpage(PooledByteBuf<T> buf, ByteBuffer nioBuffer, long handle, int reqCapacity) {
         initBufWithSubpage(buf, nioBuffer, handle, bitmapIdx(handle), reqCapacity);
     }

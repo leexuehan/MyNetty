@@ -3,19 +3,19 @@ package tech.netty.memorymodel;
 /**
  * @author leexuehan on 2019/6/24.
  */
-final class ChunkList<T> {
-    private final Arena<T> arena;
+final class PoolChunkList<T> {
+    private final PoolArena<T> arena;
 
-    private ChunkList<T> nextList;
-    private ChunkList<T> prevList;
-    private Chunk<T> head;
+    private PoolChunkList<T> nextList;
+    private PoolChunkList<T> prevList;
+    private PoolChunk<T> head;
 
     private final int minUsage;
     private final int maxUsage;
     private final int maxCapacity;
 
 
-    public ChunkList(Arena<T> arena, ChunkList<T> nextList, int minUsage, int maxUsage, int chunkSize) {
+    public PoolChunkList(PoolArena<T> arena, PoolChunkList<T> nextList, int minUsage, int maxUsage, int chunkSize) {
         this.arena = arena;
         this.nextList = nextList;
         this.minUsage = minUsage;
@@ -28,7 +28,7 @@ final class ChunkList<T> {
         return 0;
     }
 
-    void prevList(ChunkList<T> prevList) {
+    void prevList(PoolChunkList<T> prevList) {
         this.prevList = prevList;
     }
 }

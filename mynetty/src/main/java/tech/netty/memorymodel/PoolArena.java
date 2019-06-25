@@ -7,11 +7,13 @@ package tech.netty.memorymodel;
 
 import tech.netty.common.buffer.PooledByteBuf;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Netty 全局内存池
  * <p>
  * ---------------
- * |   Arena      |
+ * |   PoolArena      |
  * ---------------
  * |                            \          \
  * |                             \          \
@@ -23,12 +25,12 @@ import tech.netty.common.buffer.PooledByteBuf;
  * |             \           \
  * |              \           \
  * Page1        Page2 .... Page2048
- * |     \
- * |      \
- * |       \
- * SubPage1 SubPage2...
+ * |        \
+ * |         \
+ * |          \
+ * SubPage1   SubPage2...
  */
-public class Arena<T> {
+public class PoolArena<T> {
 
     //大小种类
     enum SizeClass {
@@ -47,46 +49,49 @@ public class Arena<T> {
     final int directMemoryCacheAlignment;
     final int directMemoryCacheAlignmentMask;
 
-    final int numOfSmallSubpages;
-    static final int numOfTinySubpages = 512 >>> 4; //32
+    final int numOfSmallSubpagePools;
+    static final int numOfTinySubpagePools = 512 >>> 4; //32
     final int subpageOverflowMask;
 
-    //使用率不同的 Chunk 链表
-    private final ChunkList<T> q000;
-    private final ChunkList<T> q025;
-    private final ChunkList<T> q050;
-    private final ChunkList<T> q075;
-    private final ChunkList<T> q100;
-    private final ChunkList<T> qInit;
+    //使用率不同的 PoolChunk 链表
+    private final PoolChunkList<T> q000;
+    private final PoolChunkList<T> q025;
+    private final PoolChunkList<T> q050;
+    private final PoolChunkList<T> q075;
+    private final PoolChunkList<T> q100;
+    private final PoolChunkList<T> qInit;
 
-    private final SubPage<T>[] tinySubpages;
-    private final SubPage<T>[] smallSubpages;
+    private final PoolSubPage<T>[] tinySubpages;
+    private final PoolSubPage<T>[] smallSubpages;
+
+    //Arena 内存块里面的 ThreadCache 数量
+    final AtomicInteger numThreadCaches = new AtomicInteger();
 
 
-    public Arena(int pageSize, int pageShifts, int chunkSize, int cacheAlignment) {
+    public PoolArena(int pageSize, int pageShifts, int chunkSize, int cacheAlignment) {
         this.pageSize = pageSize;
         this.pageShifts = pageShifts;
         this.chunkSize = chunkSize;
         directMemoryCacheAlignment = cacheAlignment;
         directMemoryCacheAlignmentMask = cacheAlignment - 1;
 
-        tinySubpages = new SubPage[numOfTinySubpages];
+        tinySubpages = newSubpageArray(numOfTinySubpagePools);
         for (int i = 0; i < tinySubpages.length; i++) {
             tinySubpages[i] = newSubpageHead(pageSize);
         }
 
-        numOfSmallSubpages = pageShifts - 9;
-        smallSubpages = new SubPage[numOfSmallSubpages];
+        numOfSmallSubpagePools = pageShifts - 9;
+        smallSubpages = newSubpageArray(numOfSmallSubpagePools);
         for (int i = 0; i < smallSubpages.length; i++) {
             smallSubpages[i] = newSubpageHead(pageSize);
         }
 
-        q100 = new ChunkList<>(this, null, 100, Integer.MAX_VALUE, chunkSize);
-        q075 = new ChunkList<>(this, q100, 75, 100, chunkSize);
-        q050 = new ChunkList<>(this, q075, 50, 75, chunkSize);
-        q025 = new ChunkList<>(this, q075, 25, 50, chunkSize);
-        q000 = new ChunkList<>(this, q025, 1, 25, chunkSize);
-        qInit = new ChunkList<>(this, q000, Integer.MIN_VALUE, 25, chunkSize);
+        q100 = new PoolChunkList<>(this, null, 100, Integer.MAX_VALUE, chunkSize);
+        q075 = new PoolChunkList<>(this, q100, 75, 100, chunkSize);
+        q050 = new PoolChunkList<>(this, q075, 50, 75, chunkSize);
+        q025 = new PoolChunkList<>(this, q075, 25, 50, chunkSize);
+        q000 = new PoolChunkList<>(this, q025, 1, 25, chunkSize);
+        qInit = new PoolChunkList<>(this, q000, Integer.MIN_VALUE, 25, chunkSize);
 
         q100.prevList(q075);
         q075.prevList(q050);
@@ -98,8 +103,13 @@ public class Arena<T> {
         subpageOverflowMask = ~(pageSize - 1);
     }
 
-    private SubPage<T> newSubpageHead(int pageSize) {
-        SubPage<T> head = new SubPage<>(pageSize);
+    @SuppressWarnings("unchecked")
+    private PoolSubPage<T>[] newSubpageArray(int size) {
+        return new PoolSubPage[size];
+    }
+
+    private PoolSubPage<T> newSubpageHead(int pageSize) {
+        PoolSubPage<T> head = new PoolSubPage<>(pageSize);
         head.prev = head;
         head.next = head;
         return head;
@@ -175,7 +185,7 @@ public class Arena<T> {
         // 分配 normal 或者 small
         if (isTinyOrSmall(normCapacity)) {
             int tableIdx;
-            SubPage<T>[] table;
+            PoolSubPage<T>[] table;
             boolean isTiny = isTiny(normCapacity);
             //tiny
             if (isTiny) {
@@ -193,13 +203,12 @@ public class Arena<T> {
                 tableIdx = smallIdx(normCapacity);
                 table = smallSubpages;
             }
-            final SubPage<T> head = table[tableIdx];
+            final PoolSubPage<T> head = table[tableIdx];
             synchronized (head) {
-                final SubPage<T> s = head.next;
+                final PoolSubPage<T> s = head.next;
                 if (s != head) {
                     long handle = s.allocate();
                     s.chunk.initBufWithSubpage(buf, null, handle, reqCapacity);
-                    incNumOfTinySmallAllocation(isTiny);
                     return;
                 }
             }
@@ -226,18 +235,20 @@ public class Arena<T> {
 
     }
 
-    private void incNumOfTinySmallAllocation(boolean isTiny) {
-        if(isTiny){
-
-        }
-    }
-
-    private int tinyIdx(int normCapacity) {
+    //归一化后 tiny 的 normCapacity 为 16 的倍数，所以求其下标只向右移4位即可。
+    static int tinyIdx(int normCapacity) {
         return normCapacity >>> 4;
     }
 
-    private int smallIdx(int normCapacity) {
-
+    //归一化后 small 的 normCapacity 为 2 的指数次,起始为：2^9,也就是在第 10 位上不为0
+    static int smallIdx(int normCapacity) {
+        int tableIdx = 0;
+        int i = normCapacity >>> 10;
+        while (i != 0) {
+            i >>>= 1;
+            tableIdx++;
+        }
+        return tableIdx;
     }
 
     private void allocateNormal(PooledByteBuf<T> buf, int reqCapacity, int normCapacity) {
