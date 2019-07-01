@@ -14,5 +14,8 @@
 
 [参考链接](https://gsmtoday.github.io/2017/09/03/netty-memory-pool-md/)
 
+[cpu和memory之间的关系](https://manybutfinite.com/post/what-your-computer-does-while-you-wait/)
+
+[excelent blogs](https://manybutfinite.com/archives/)
 
 源码分析参考:[自顶向下深入分析Netty](https://www.jianshu.com/p/15304cd63175)
